@@ -209,7 +209,7 @@ OnGetTokenComplete的参数JSONObject，含义如下：
 
 ### 2.4.1. 调用逻辑
 
-![](C:/Users/tonyl/Documents/GitHub/image/authPage.png)
+![](image/authPage.png)
 
 ### 2.4.2. 页面规范细则
 
