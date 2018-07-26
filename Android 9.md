@@ -103,6 +103,14 @@ mListener = new TokenListener() {
     }
 };
 ```
+**[3] 混淆策略。**
+
+```
+-keep class com.cmic.sso.sdk.*{;}
+```
+
+
+
 <div STYLE="page-break-after: always;"></div>
 
 # 2. 一键登录功能
