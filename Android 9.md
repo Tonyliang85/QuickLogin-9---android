@@ -244,16 +244,6 @@ public void recordAuthEvent(String mAppId)
 | :----- | :----- | :---------- |
 | mAppId | String | 应用的AppID |
 
-调用示例
-
-```java
-@Override
-protected void onDestroy() {
-    super.onDestroy();
-    AuthnHelper.getInstance(this).recordAuthEvent(Constant.APP_ID);
-}
-```
-
 ## 2.5. 授权
 
 用户调用授权方法，获取取号token
