@@ -1,13 +1,12 @@
-# 1. 接入指南
+1. 接入指南
 
 sdk技术问题沟通QQ群：609994083</br>
 
 **注意事项：**
 
 1. 目前SDK支持中国移动2/3/4G、中国电信4G的取号能力，中国联通的取号能力暂未开放。
-2. 由于运营商取号能力是通过数据网关实现，取号过程必须在数据流量打开的情况下才能进行（WiFi和数据流量同时打开时，SDK会强制切换到数据流量执行取号逻辑，将会消耗用户少量流量），当信号弱或者网络有干扰时，时延会高于平均值，取号成功率较低。
-3. 本SDK同时提供一键登录和本机号码校验功能，开发者根据实际的需求调用对应方法和接口。
-4. 对于双卡手机，移动认证SDK只对当前的流量卡取号，如果用户需要使用第二张卡登录，建议开发者在授权登录页面上增加其他登录方式。
+2. 一键登录取号能力在取号过程中，用户的手机终端的数据流量必须打开或者终端需允许应用使用数据流量（WiFi和数据流量同时打开时，SDK会强制切换到数据流量执行取号逻辑，将会消耗用户少量流量），当信号弱或者网络有干扰时，时延会高于平均值，取号成功率较低。
+3. 对于双卡手机，移动认证SDK只对当前的流量卡取号，如果用户需要使用第二张卡登录，建议开发者在授权登录页面上增加其他登录方式。
 
 ## 1.1. 接入流程
 
@@ -103,10 +102,13 @@ mListener = new TokenListener() {
     }
 };
 ```
-**[3] 混淆策略。**
+**[4] 混淆策略**
 
-```
--keep class com.cmic.sso.sdk.*{;}
+请避免混淆一键登录SDK，在Proguard混淆文件中增加以下配置：
+
+```java
+-dontwarn com.cmic.sso.sdk.**
+-keep public class com.cmic.sso.sdk.*{;}
 ```
 
 
@@ -117,35 +119,33 @@ mListener = new TokenListener() {
 
 ## 2.1. 准备工作
 
-在接入一键登录功能之前，开发者必须先按照1.1接入流程，在中国移动开发者社区注册开发者账号，创建一个包含移动认证能力的应用，获取响应的AppId和AppKey，并且在开发者社区中勾选一键登录能力，配置应用服务器出口ip地址。
+在中国移动开发者社区进行以下操作：
+
+1. 获得appid和appkey；
+2. 勾选一键登录能力；
+3. 配置应用服务器的出口ip地址
 
 ##2.2. 流程说明 
 
-移动认证一键登录允许开发者在用户同意授权后，在客户端侧获取`接口调用凭证`（token），第三方服务器携带token调用`获取手机号码接口`，实现获取当前授权登录用户的手机号码等信息。
-
-整体流程为：
-
-1. 开发者调用取号方法，取号成功后，SDK将缓存取号临时凭证scrip；
-2. 开发者继承UAAuthActivity父类并创建授权页面。
-3. 用户同意应用获取本机号码，调用授权登录方法，获取接口调用凭证token；
-4. 携带token进行接口调用，获取用户的手机号码信息。
+1. 开发者调用SDK取号方法，取号成功后，SDK将缓存取号临时凭证scrip；
+2. 用户同意应用获取本机号码，调用授权登录方法，获取接口调用凭证token；
+3. 携带token进行接口调用，获取用户的手机号码信息。
 
 一键登录整体流程：
 
 ![](image/login_process.png)
 
-##2.3. 获取临时取号凭证
+##2.3. 预取号
 
-开发者在需要使用一键登录的场景，调用SDK取号方法`getPhoneInfo`，认证服务端取号成功后，会返回一个临时取号凭证scrip缓存在SDK中，该scrip用于换取接口调用凭证token。
+在用户正式授权给开发者使用本机号码登录前，开发者可以提前调取预取号方法，获知当前用户的终端状态和网络环境是否可以从网关获取号码。
 
-![](image/scrip2token.png)
+
 
 为了保证SDK取号成功率，开发者在取号前必须保证：
 
-1. 应用必须提前获取用户手机`READ_PHONE_STATE`权限。
+1. 应用必须提前获取用户手机`READ_PHONE_STATE`权限（用于判断双卡、换卡）。
 2. 运营商目前只支持中国移动2/3/4G和中国电信4G，开发者在调用取号方法前，可以预先判断当前用户的运营商类型和网络制式，仅针对SDK目前支持的运营商和网络制式使用一键登录功能。
-3. 受运营商取号原理的限制，网关取号必须在数据流量打开的情况下进行，因此，用户如果关闭数据流量，将无法成功取号。（Android SDK 9.0+版本后，对于首次通过数据流量成功登录过的用户，二次+登录时，允许在数据流量关闭时取号）
-4. 任何改变运营商分配给手机的IP地址的行为（如VPN代理，路由器VPN、手机VPN），都无法取号。
+3. 网关取号必须在数据流量打开的情况下进行，因此，用户如果关闭数据流量，将无法成功取号。（Android SDK 9.0+版本后，对于首次通过数据流量成功登录过的用户，二次+登录时，允许在数据流量关闭时取号）
 
 **请求示例代码**
 
@@ -198,18 +198,7 @@ OnGetTokenComplete的参数JSONObject，含义如下：
 | ------------- | ------ | ----------------------------- |
 | resultCode    | String | 接口返回码，“103000”为成功。  |
 | desc          | String | 成功标识，true为成功。        |
-| securityPhone | String | 手机号码掩码，如“138XXXX0000” |
-
-**关于临时取号凭证scrip：**
-
-1. scrip有效期30天，scrip刷新时，有效期将重置为30天。
-2. 开发者在2个场景会刷新scrip：1. 请求获取scrip时；2. 成功获取token时。
-3. 首次取号或scrip失效时，需要手机终端的数据流量打开的状态下，才可以请求获取scrip。
-4. 二次+登录时，scrip在有效期内，客户端即使在数据流量关闭状态下也能取号（网络要通）。
-5. scrip保存在客户端私有目录下，使用keystore加密保存，在请求token时使用keystore解密scrip。
-6. 部分机型不支持keystore加密，如果加密失败，scrip只保存在内存中。
-7. 对于root的系统，scrip保存在内存中。
-8. SDK提供删除临时凭证方法`delScrip`，提前让scrip失效。
+| securityphone | String | 手机号码掩码，如“138XXXX0000” |
 
 ## 2.4. 创建授权页
 
@@ -241,26 +230,33 @@ OnGetTokenComplete的参数JSONObject，含义如下：
 
 ### 2.4.3. 构建授权页面
 
-授权登录页面由开发者设计和构建，在构建前，需继承SDK自有的授权页父类UAAuthActivity。
+授权登录页面由开发者设计和构建，在构建前，需调用SDK提供的授权页埋点记录方法。
 
-开发者继承SDK提供的父类UAAuthActivity创建自定义的授权页子类LoginActivity，并在该activity中实现开发者业务。
-示例代码如下：
+**埋点记录方法原型**
 
 ```java
-//继承UAAuthActivity构建用户自定义授权页面
-public class LoginActivity extends UAAuthActivity implements TokenListener {
-
-//实现授权页页面设计、布局、动画
-//调用取号、授权等逻辑 
-    
-    }
+public void recordAuthEvent(String mAppId)
 ```
 
-## 2.5. 授权并获取接口凭证
+**参数说明**
 
-开发者完成2.3和2.4的逻辑后，确保临时取号凭证scrip有效，并且用户点击同意授权登录后，开发者可以调用授权方法，获取接口凭证token。为了保证scrip的有效性，建议开发者在调用授权登录方法前，再次调用取号方法。（如果scrip有效，再次调用取号方法的耗时非常少）
+| 参数   | 类型   | 说明        |
+| :----- | :----- | :---------- |
+| mAppId | String | 应用的AppID |
 
-在调用授权方法时，必须将2.4中开发者创建的授权页传入到本方法中，且需要保证授权页正在内存运行中，否则取号失败，错误码200042。
+调用示例
+
+```java
+@Override
+protected void onDestroy() {
+    super.onDestroy();
+    AuthnHelper.getInstance(this).recordAuthEvent(Constant.APP_ID);
+}
+```
+
+## 2.5. 授权
+
+用户调用授权方法，获取取号token
 
 **请求示例代码：**
 
@@ -275,32 +271,27 @@ mListener = new TokenListener() {
     }
 };
 
-/***
-//3.构建授权页面uaAuthactivity并拉起授权页
-***/
 
-//4.用户点击授权按钮时，调用loginAuth方法，传入应用定义的uaAuthactivity，获取token
-    mAuthnHelper.loginAuth(uaAuthactivity, Constant.APP_ID, Constant.APP_KEY, mListener);
+//3.用户点击授权按钮时，调用loginAuth方法，传入应用定义的uaAuthactivity，获取token
+    mAuthnHelper.loginAuth(Constant.APP_ID, Constant.APP_KEY, mListener);
     ……
 ```
 
 **授权方法原型：**
 
 ```java
-public void loginAuth(final UAAuthActivity uaAuthActivity, 
-                      final String appId, 
+public void loginAuth(final String appId, 
                       final String appKey, 
                       final TokenListener listener)
 ```
 
 **参数说明：**
 
-| 参数           | 类型           | 说明                                                         |
-| :------------- | :------------- | :----------------------------------------------------------- |
-| appId          | String         | 应用的AppID                                                  |
-| appkey         | String         | 应用密钥                                                     |
-| uaAuthActivity | UAAuthActivity | 授权页面，由开发者完成页面的设计布局。当uaAuthActivity传值为null时，获取的token用于本机号码校验 |
-| listener       | TokenListener  | TokenListener为回调监听器，是一个java接口，需要调用者自己实现；TokenListener是接口中的认证登录token回调接口，OnGetTokenComplete是该接口中唯一的抽象方法，即void OnGetTokenComplete(JSONObject  jsonobj) |
+| 参数     | 类型          | 说明                                                         |
+| :------- | :------------ | :----------------------------------------------------------- |
+| appId    | String        | 应用的AppID                                                  |
+| appkey   | String        | 应用密钥                                                     |
+| listener | TokenListener | TokenListener为回调监听器，是一个java接口，需要调用者自己实现；TokenListener是接口中的认证登录token回调接口，OnGetTokenComplete是该接口中唯一的抽象方法，即void OnGetTokenComplete(JSONObject  jsonobj) |
 
 **返回说明：**
 
@@ -359,7 +350,7 @@ TokenListener的参数JSONObject，含义如下：
 | appid               | 必选 | 业务在统一认证申请的应用id                                   |
 | expandparams        | 可选 | 扩展参数                                                     |
 | token               | 必选 | 需要解析的凭证值。                                           |
-| sign                | 必选 | 当**encryptionalgorithm≠"RSA"**时，sign = MD5（appid + version + msgid + systemtime + strictcheck + token + appkey)（注：“+”号为合并意思，不包含在被加密的字符串中），输出32位大写字母；</br>当**encryptionalgorithm="RSA"**，业务端RSA私钥签名（appid+token）, 服务端使用业务端提供的公钥验证签名（公钥可以在开发者社区配置）。 |
+| sign                | 必选 | 当**encryptionalgorithm≠"RSA"**时，sign = MD5（appid + version + msgid + systemtime + strictcheck + token + appkey)（注：“+”号为合并意思，不包含在被加密的字符串中），输出32位大写字母；</br>当**encryptionalgorithm="RSA"**，业务端RSA私钥签名（appid+token，加密方法是SHA256withRSA）, 服务端使用业务端提供的公钥验证签名（公钥可以在开发者社区配置）。 |
 | encryptionalgorithm | 可选 | 推荐使用。开发者如果需要使用非对称加密算法时，填写“RSA”。（当该值不设置为“RSA”时，执行MD5签名校验） |
 
 **返回说明**
@@ -373,242 +364,11 @@ TokenListener的参数JSONObject，含义如下：
 
 <div STYLE="page-break-after: always;"></div>
 
-# 3. 本机号码校验功能
+# 3. SDK方法说明
 
-## 3.1. 准备工作
+## 3.1. 获取管理类的实例对象
 
-在接入本机号码校验功能之前，开发者必须先按照1.1 接入流程，在中国移动开发者社区注册开发者账号，创建一个包含移动认证能力的应用，获取响应的AppId和AppKey。并且在开发者社区中勾选本机号码校验能力，配置应用服务器出口ip地址。
-
-## 3.2. 流程说明
-
-移动认证本机号码校验用于校验用户当前输入的手机号码是否为本机号码。
-
-整体流程为：
-
-1. 开发者调用取号方法，取号成功后，SDK将缓存取号临时凭证scrip；
-2. 调用授权登录方法，获取接口凭证token；
-3. 开发者使用本机号码校验的交互页面；
-4. 携带token和手机号码信息进行接口调用，获取手机号码校验结果。
-
-本机号码校验整体流程：
-
-![](image/verify_process.png)
-
-## 3.3. 获取临时取号凭证
-
-开发者调用SDK取号方法`getPhoneInfo`，认证服务端取号成功后，会返回一个临时取号凭证scrip缓存在SDK中，在授权过程中换取调用获取接口调用凭证token。
-
-为了保证SDK取号成功率，开发者在取号前必须保证：
-
-1. 应用必须提前获取用户手机`READ_PHONE_STATE`权限。
-2. 运营商目前只支持中国移动2/3/4G和中国电信4G，开发者在调用取号方法前，可以预先判断当前用户的运营商类型和网络制式，仅针对SDK目前支持的运营商和网络制式使用一键登录功能。
-3. 受运营商取号原理的限制，网关取号必须在数据流量打开的情况下进行，因此，用户如果关闭数据流量，将无法成功取号。（Android SDK 9.0+版本后，对于首次通过数据流量成功登录过的用户，二次+登录时，允许在数据流量关闭时取号）
-4. 任何改变运营商分配给手机的IP地址的行为（如VPN代理，路由器VPN、手机VPN），都无法取号。
-
-**请求示例代码**
-
-```java
-/***
-判断和获取READ_PHONE_STATE权限逻辑
-***/   
-
-//创建AuthnHelper实例
-public void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    mContext = this;    
-    ……
-    mAuthnHelper = AuthnHelper.getInstance(mContext);
-    }
-
-//实现取号回调
-mListener = new TokenListener() {
-    @Override
-    public void onGetTokenComplete(JSONObject jObj) {
-        …………	// 应用接收到回调后的处理逻辑
-    }
-};
-
-//调用取号方法
-mAuthnHelper.getPhoneInfo(APP_ID, APP_KEY, mListener);
-```
-
-**取号方法原型：**
-
-```java
-public void getPhoneInfo(final String appId, 
-                         final String appKey, 
-                         final TokenListener listener)
-```
-
-**参数说明：**
-
-| 参数     | 类型          | 说明                                                         |
-| :------- | :------------ | :----------------------------------------------------------- |
-| appId    | String        | 应用的AppID，在开发者社区创建应用时获取                      |
-| appkey   | String        | 应用密钥，在开发者社区创建应用时获取                         |
-| listener | TokenListener | TokenListener为回调监听器，是一个java接口，需要调用者自己实现；TokenListener是接口中的认证登录token回调接口，OnGetTokenComplete是该接口中唯一的抽象方法，即void OnGetTokenComplete(JSONObject  jsonobj) |
-
-**返回说明：**
-
-OnGetTokenComplete的参数JSONObject，含义如下：
-
-| 字段          | 类型   | 含义                          |
-| ------------- | ------ | ----------------------------- |
-| resultCode    | String | 接口返回码，“103000”为成功。  |
-| desc          | String | 成功标识，true为成功。        |
-| securityPhone | String | 手机号码掩码，如“138XXXX0000” |
-
-**关于临时取号凭证scrip：**
-
-1. scrip有效期30天，scrip刷新时，有效期将重置为30天。
-2. 开发者在2个场景会刷新scrip：1. 请求获取scrip时；2. 成功获取token时。
-3. 首次取号或scrip失效时，需要手机终端的数据流量打开的状态下，才可以请求获取scrip。
-4. 二次+登录时，scrip在有效期内，客户端即使在数据流量关闭状态下也能取号（网络要通）。
-5. scrip保存在客户端私有目录下，使用keystore加密保存，在请求token时使用keystore解密scrip。
-6. 部分机型不支持keystore加密，如果加密失败，scrip只保存在内存中。
-7. 对于root的系统，scrip保存在内存中。
-8. SDK提供删除临时凭证方法`delScrip`，提前让scrip失效。
-
-## 3.4. 授权并获取接口凭证
-
-开发者完成3.3逻辑后，确保临时取号凭证scrip有效，调用授权方法，获取接口凭证token。
-
-在调用授权方法时，将uaAuthActivity对象传入值设为null
-
-**请求示例代码：**
-
-```java
-//1.调用取号方法getPhoneInfo，确保取号成功。
-
-//2.实现回调
-mListener = new TokenListener() {
-    @Override
-    public void onGetTokenComplete(JSONObject jObj) {
-        …………		// 应用接收到回调后的处理逻辑
-    }
-};
-    
-//3.调用授权登录，uaAuthActivity传null    
-    mAuthnHelper.loginAuth(null, Constant.APP_ID, Constant.APP_KEY, mListener);
-    ……
-```
-
-**授权方法原型：**
-
-```java
-public void loginAuth(final UAAuthActivity uaAuthActivity,
-                      final String appId, 
-                      final String appKey, 
-                      final TokenListener listener)
-```
-
-**参数说明：**
-
-| 参数           | 类型           | 说明                                                         |
-| :------------- | :------------- | :----------------------------------------------------------- |
-| appId          | String         | 应用的AppID                                                  |
-| appkey         | String         | 应用密钥                                                     |
-| uaAuthActivity | UAAuthActivity | 授权页面，由开发者完成页面的设计布局。当uaAuthActivity传值为null时，获取的token用于本机号码校验 |
-| listener       | TokenListener  | TokenListener为回调监听器，是一个java接口，需要调用者自己实现；TokenListener是接口中的认证登录token回调接口，OnGetTokenComplete是该接口中唯一的抽象方法，即void OnGetTokenComplete(JSONObject  jsonobj) |
-
-**返回说明：**
-
-TokenListener的参数JSONObject，含义如下：
-
-| 字段        | 类型   | 含义                                                         |
-| ----------- | ------ | ------------------------------------------------------------ |
-| resultCode  | String | 接口返回码，“103000”为成功。                                 |
-| authType    | String | 登录方式：1：WIFI下网关鉴权</br>2：网关鉴权</br>3：其他      |
-| authTypeDes | String | 登录方式描述                                                 |
-| token       | String | 成功时返回：临时凭证，token有效期2min，一次有效；同一用户（手机号）10分钟内获取token且未使用的数量不超过30个 |
-| openId      | String | 成功时返回：用户身份唯一标识。（uaAuthActivity传入null时，不返回） |
-
-## 3.5. 客户端交互页面设计
-
-开发者在本机号码校验的使用场景（页面），引导提示用户输入本机号码，将手机号码和3.4中获取的接口凭证token传回应用服务器。
-
-## 3.6. 本机号码校验（服务端）
-
-开发者获取token后，需要将token传递到应用服务器，由应用服务器发起本机号码校验接口的调用。
-
-调用本接口，必须保证：
-
-1. token在有效期内（2分钟）。
-2. token还未使用过。
-3. 应用服务器出口IP地址在开发者社区中配置正确。
-
-对于本机号码校验，需要注意：
-
-1. 本产品属于收费业务，开发者未签订服务合同前，每天总调用次数有限，详情可咨询商务。
-2. 签订合同后，将不在提供每天免费的测试次数。
-
-**接口说明：**
-
-请求地址： https://www.cmpassport.com/openapi/rs/tokenValidate
-
-协议： HTTPS
-
-请求方法： POST+json,Content-type设置为application/json
-
-**请求示例代码：**
-
-```
-{
-    body =     {
-        openType = 1;
-        phoneNum =0A2050AC434A32DE684745C829B3DE570590683FAA1C9374016EF60390E6CE76;
-        requesterType = 0;
-        sign = 87FCAC97BCF4B0B0D741FE1A85E4DF9603FD301CB3D7100BFB5763CCF61A1488;
-        token = STsid0000001517194515125yghlPllAetv4YXx0v6vW2grV1v0votvD;
-    };
-    header =     {
-        appId = 3000******76;
-        msgId = f11585580266414fbde9f755451fb7a7;
-        timestamp = 20180129105523519;
-        version = "1.0";
-    };
-}
-```
-
-**参数说明：**
-
-| 参数          | 层级  | 约束                         | 说明                                                         |
-| ------------- | ----- | ---------------------------- | ------------------------------------------------------------ |
-| **header**    | **1** | 必选                         |                                                              |
-| version       | 2     | 必选                         | 版本号,初始版本号1.0,有升级后续调整                          |
-| msgId         | 2     | 必选                         | 使用UUID标识请求的唯一性                                     |
-| timestamp     | 2     | 必选                         | 请求消息发送的系统时间，精确到毫秒，共17位，格式：20121227180001165 |
-| appId         | 2     | 必选                         | 应用ID                                                       |
-| **body**      | **1** | 必选                         |                                                              |
-| openType      | 2     | 否，requestertype字段为0时是 | 运营商类型：</br>1:移动;</br>2:联通;</br>3:电信;</br>0:未知  |
-| requesterType | 2     | 是                           | 请求方类型：</br>0:APP；</br>1:WAP                           |
-| message       | 2     | 否                           | 接入方预留参数，该参数会透传给通知接口，此参数需urlencode编码 |
-| expandParams  | 2     | 否                           | 扩展参数格式：param1=value1\|param2=value2  方式传递，参数以竖线 \| 间隔方式传递，此参数需urlencode编码。 |
-| phoneNum      | 2     | 是                           | 待校验的手机号码的64位sha256值，字母大写。（手机号码 + appKey + timestamp， “+”号为合并意思）（注：建议开发者对用户输入的手机号码的格式进行校验，增加校验通过的概率） |
-| token         | 2     | 是                           | 身份标识，字符串形式的token                                  |
-| sign          | 2     | 是                           | 签名，HMACSHA256( appId +     msgId + phonNum + timestamp + token + version)，输出64位大写字母 （注：“+”号为合并意思，不包含在被加密的字符串中,appkey为秘钥, 参数名做自然排序（Java是用TreeMap进行的自然排序）） |
-
-**返回说明：**
-
-| 参数         | 层级  | 类型   | 说明                                                         |
-| ------------ | ----- | :----- | :----------------------------------------------------------- |
-| **header**   | **1** |        |                                                              |
-| msgId        | 2     | string | 对应的请求消息中的msgid                                      |
-| timestamp    | 2     | string | 响应消息发送的系统时间，精确到毫秒，共17位，格式：20121227180001165 |
-| appId        | 2     | string | 应用ID                                                       |
-| resultCode   | 2     | string | 平台返回码                                                   |
-| **body**     | **1** |        |                                                              |
-| resultDesc   | 2     | String | 平台返回码                                                   |
-| message      | 2     | String | 接入方预留参数，该参数会透传给通知接口，此参数需urlencode编码 |
-| expandParams | 2     | String | 扩展参数格式：param1=value1\|param2=value2  方式传递，参数以竖线 \| 间隔方式传递，此参数需urlencode编码。 |
-
-<div STYLE="page-break-after: always;"></div>
-
-# 4. SDK方法说明
-
-## 4.1. 获取管理类的实例对象
-
-### 4.1.1. 方法描述
+### 3.1.1. 方法描述
 
 获取管理类的实例对象
 
@@ -618,15 +378,15 @@ TokenListener的参数JSONObject，含义如下：
 public static AuthnHelper getInstance(Context context)
 ```
 
-### 4.1.2. 参数说明
+### 3.1.2. 参数说明
 
 | 参数      | 类型      | 说明                              |
 | ------- | ------- | ------------------------------- |
 | context | Context | 调用者的上下文环境，其中activity中this即可以代表。 |
 
-## 4.2. 取号
+## 3.2. 预取号
 
-### 4.2.1. 方法描述
+### 3.2.1. 方法描述
 
 **功能**
 
@@ -636,7 +396,7 @@ public static AuthnHelper getInstance(Context context)
 
 建议开发者在应用开启时调用本方法，有助于提升登录的成功率和用户登录体验。
 
-### 4.2.2. 参数说明
+### 3.2.2. 参数说明
 
 **请求参数**
 
@@ -654,9 +414,9 @@ OnGetTokenComplete的参数JSONObject，含义如下：
 | ------------- | ------ | ----------------------------- |
 | resultCode    | String | 接口返回码，“103000”为成功。  |
 | desc          | String | 成功标识，true为成功。        |
-| securityPhone | String | 手机号码掩码，如“138XXXX0000” |
+| securityphone | String | 手机号码掩码，如“138XXXX0000” |
 
-### 4.2.3. 示例
+### 3.2.3. 示例
 
 **请求示例代码**
 
@@ -691,57 +451,47 @@ mAuthnHelper.getPhoneInfo(APP_ID, APP_KEY, mListener);
 {
 	"resultCode":"103000",
 	"desc":"true",
-	"securityPhone:"138XXXX0000"
+	"securityphone:"138XXXX0000"
 }
 ```
 
-## 4.3. 授权
+## 3.3. 授权
 
-### 4.3.1. 方法描述
+### 3.3.1. 方法描述
 
-**功能**
+用户调用授权方法，获取取号token
 
-在应用弹出授权页的情况下，调用本方法可以成功获取取号凭证token。如果需要**获取用户完整的手机号码**，调用该方法时，需要将正在运行的授权页面uaAuthActivity传入并获取相对应的token；如果需要做**本机号码校验**，调用该方法时，uaAuthActivity参数传null即可。
-
-**注：**若要实现一键登录，必须在授权页的activity中调用本方法，否则会报错
-
-**原型**
+**授权方法原型：**
 
 ```java
-public void loginAuth(final UAAuthActivity uaAuthActivity, 
-                      final String appId, 
+public void loginAuth(final String appId, 
                       final String appKey, 
                       final TokenListener listener)
 ```
 
-### 4.3.2. 参数说明
+###3.3.2. 参数说明
 
-**请求参数**
+**参数说明：**
 
-| 参数           | 类型           | 说明                                                         |
-| :------------- | :------------- | :----------------------------------------------------------- |
-| appId          | String         | 应用的AppID                                                  |
-| appkey         | String         | 应用密钥                                                     |
-| uaAuthActivity | UAAuthActivity | 授权页面，由开发者完成页面的设计布局。当uaAuthActivity传值为null时，获取的token用于本机号码校验 |
-| listener       | TokenListener  | TokenListener为回调监听器，是一个java接口，需要调用者自己实现；TokenListener是接口中的认证登录token回调接口，OnGetTokenComplete是该接口中唯一的抽象方法，即void OnGetTokenComplete(JSONObject  jsonobj) |
+| 参数     | 类型          | 说明                                                         |
+| :------- | :------------ | :----------------------------------------------------------- |
+| appId    | String        | 应用的AppID                                                  |
+| appkey   | String        | 应用密钥                                                     |
+| listener | TokenListener | TokenListener为回调监听器，是一个java接口，需要调用者自己实现；TokenListener是接口中的认证登录token回调接口，OnGetTokenComplete是该接口中唯一的抽象方法，即void OnGetTokenComplete(JSONObject  jsonobj) |
 
-**响应参数**
+**返回说明：**
 
 TokenListener的参数JSONObject，含义如下：
 
 | 字段        | 类型   | 含义                                                         |
 | ----------- | ------ | ------------------------------------------------------------ |
-| resultCode  | String | 接口返回码，“103000”为成功。                                 |
-| authType    | String | 登录方式：</br>1：WIFI下网关鉴权</br>2：网关鉴权</br>3：其他 |
+| resultCode  | String | 接口返回码，“103000”为成功                                   |
+| authType    | String | 登录方式：1：WIFI下网关鉴权</br>2：网关鉴权</br>3：其他      |
 | authTypeDes | String | 登录方式描述                                                 |
 | token       | String | 成功时返回：临时凭证，token有效期2min，一次有效；同一用户（手机号）10分钟内获取token且未使用的数量不超过30个 |
 | openId      | String | 成功时返回：用户身份唯一标识。（uaAuthActivity传入null时，不返回） |
 
-</br>
-
-### 4.3.3. 示例
-
-**请求示例代码**
+### 3.3.3. 示例
 
 ```java
 //1.调用取号方法getPhoneInfo
@@ -754,32 +504,17 @@ mListener = new TokenListener() {
     }
 };
 
-/***
-//3.构建授权页面uaAuthactivity并拉起授权页
-***/
 
-//4.用户点击授权按钮时，调用loginAuth方法，传入应用定义的uaAuthactivity，获取token
-    mAuthnHelper.loginAuth(uaAuthactivity, Constant.APP_ID, Constant.APP_KEY, mListener);
+//3.用户点击授权按钮时，调用loginAuth方法，传入应用定义的uaAuthactivity，获取token
+    mAuthnHelper.loginAuth(Constant.APP_ID, Constant.APP_KEY, mListener);
     ……
 ```
 
-**响应示例代码**
+## 3.4. 设置取号超时
 
-```
-{
-	"resultCode": "103000",
-	"authType": "0",
-	"authTypeDes": "其他",
-	"token": "STsid0000001526349949452XU2gWQFcgWnoMmwwbK7ijolJcsQsH1Ws",
-	“openId":""
-}
-```
+###3.4.1. 方法描述
 
-## 4.5. 设置取号超时
-
-###4.5.1. 方法描述
-
-设置取号超时时间，默认为8秒，适用于取号和隐式登录阶段。建议配置值2~4秒
+设置取号超时时间，默认为8秒
 
 **原型**
 
@@ -787,7 +522,7 @@ mListener = new TokenListener() {
 public void setTimeOut(long timeOut)
 ```
 
-###4.5.2. 参数说明
+###3.4.2. 参数说明
 
 **请求参数**
 
@@ -801,54 +536,54 @@ public void setTimeOut(long timeOut)
 
 
 
-## 4.6. 获取网络状态和运营商类型
+## 3.5. 获取网络状态和运营商类型
 
-### 4.6.1. 方法描述
+### 3.5.1. 方法描述
 
 本方法用于获取用户当前的网络环境和运营商
 
 **原型**
 
 ```java
-public void getNetworkType(Context context,
-                           TokenListener listener)
+public JSONObject getNetworkType(Context context)
 ```
 
-### 4.6.2. 参数说明
+### 3.5.2. 参数说明
 
 **请求参数**
 
-| 参数     | 类型          | 说明       |
-| -------- | ------------- | ---------- |
-| context  | Context       | 上下文对象 |
-| listener | TokenListener | 回调       |
+| 参数    | 类型    | 说明       |
+| ------- | ------- | ---------- |
+| context | Context | 上下文对象 |
 
 **响应参数**
 
-TokenListener的参数JSONObject，含义如下：
+参数JSONObject，含义如下：
 
 | 参数     | 类型   | 说明                                                         |
 | -------- | ------ | ------------------------------------------------------------ |
 | operator | String | 运营商类型：</br>1.移动流量；</br>2.联通流量；</br>3.电信流量 |
 | netType  | String | 网络类型：</br>0.未知；</br>1.流量；</br>2.wifi；</br>3.数据流量+wifi |
 
-### 4.6.3. 示例
+### 3.5.3. 示例
 
 ```java
-mAuthnHelper.getNetworkType (context, new TokenListener() {
-    @Override
-	public void onGetTokenComplete(JSONObject jsonobj) {
-	        // do something
-    }
+/**
+ * 需要权限：READ_PHONE_STATE， ACCESS_NETWORK_STATE
+ * operator获取网络运营商 1.移动流量 2.联通流量网络 3.电信流量网络
+ * netType 网络状态：0未知；1流量 2 wifi；3 数据流量+wifi
+ */
+private void getNetAndOprate(){
+    mResultString = mAuthnHelper.getNetworkType(mContext).toString();
+    mResultDialog.setResult(StringFormat.logcatFormat(mResultString));
 }
-);
 ```
 
 
 
-## 4.7. 删除临时取号凭证
+## 3.6. 删除临时取号凭证
 
-### 4.7.1. 方法描述
+### 3.6.1. 方法描述
 
 开发者调用取号方法`getPhoneInfo`成功后，SDK将取号的一个临时凭证缓存在本地（凭证使用keystore加密），有效期30天。开发者可以根据产品的场景、风险控制级别，确定何时删除凭证。
 
@@ -869,7 +604,7 @@ SDK将在2个地方会更新生成新的凭证，一个是开发者调用取号�
 public void delScrip()
 ```
 
-### 4.7.2. 参数说明
+### 3.6.2. 参数说明
 
 **请求参数**
 
@@ -881,13 +616,13 @@ public void delScrip()
 
 <div STYLE="page-break-after: always;"></div>
 
-# 5. 服务端接口说明
+# 4. 服务端接口说明
 
-## 5.1. 获取手机号码接口
+## 4.1. 获取手机号码接口
 
 业务平台或服务端携带用户授权成功后的token来调用认证服务端获取用户手机号码等信息。
 
-### 5.1.1. 接口说明
+### 4.1.1. 接口说明
 
 **请求地址：**https://www.cmpassport.com/unisdk/rsapi/loginTokenValidate
 
@@ -899,21 +634,21 @@ public void delScrip()
 
 </br>
 
-### 5.1.2. 参数说明
+### 4.1.2. 参数说明
 
 **请求参数**
 
-| 参数                  |   类型   |  约束  | 说明                                       |
-| :------------------ | :----: | :--: | :--------------------------------------- |
-| version             | string |  必选  | 填2.0                                     |
-| msgid               | string |  必选  | 标识请求的随机数即可(1-36位)                        |
-| systemtime          | string |  必选  | 请求消息发送的系统时间，精确到毫秒，共17位，格式：20121227180001165 |
-| strictcheck         | string |  必选  | 暂时填写"0"                                  |
-| appid               | string |  必选  | 业务在统一认证申请的应用id                           |
-| expandparams        | string |  可选  | 扩展参数                                     |
-| token               | string |  必选  | 需要解析的凭证值。                                |
-| sign                | string |  必选  | 当**encryptionalgorithm≠"RSA"**时，sign = MD5（appid + version + msgid + systemtime + strictcheck + token + appkey)（注：“+”号为合并意思，不包含在被加密的字符串中），输出32位大写字母；</br>当**encryptionalgorithm="RSA"**，业务端RSA私钥签名（appid+token）, 服务端使用业务端提供的公钥验证签名（公钥可以在开发者社区配置）。 |
-| encryptionalgorithm | string |  可选  | 开发者如果需要使用非对称加密算法时，填写“RSA”。（当该值不设置为“RSA”时，执行MD5签名校验） |
+| 参数                |  类型  | 约束 | 说明                                                         |
+| :------------------ | :----: | :--: | :----------------------------------------------------------- |
+| version             | string | 必选 | 填2.0                                                        |
+| msgid               | string | 必选 | 标识请求的随机数即可(1-36位)                                 |
+| systemtime          | string | 必选 | 请求消息发送的系统时间，精确到毫秒，共17位，格式：20121227180001165 |
+| strictcheck         | string | 必选 | 暂时填写"0"                                                  |
+| appid               | string | 必选 | 业务在统一认证申请的应用id                                   |
+| expandparams        | string | 可选 | 扩展参数                                                     |
+| token               | string | 必选 | 需要解析的凭证值。                                           |
+| sign                | string | 必选 | 当**encryptionalgorithm≠"RSA"**时，sign = MD5（appid + version + msgid + systemtime + strictcheck + token + appkey)（注：“+”号为合并意思，不包含在被加密的字符串中），输出32位大写字母；</br>当**encryptionalgorithm="RSA"**，业务端RSA私钥签名（appid+token，加密方法是SHA256withRSA）, 服务端使用业务端提供的公钥验证签名（公钥可以在开发者社区配置）。 |
+| encryptionalgorithm | string | 可选 | 开发者如果需要使用非对称加密算法时，填写“RSA”。（当该值不设置为“RSA”时，执行MD5签名校验） |
 
 </br>
 
@@ -928,7 +663,7 @@ public void delScrip()
 
 </br>
 
-### 5.1.3. 示例
+### 4.1.3. 示例
 
 **请求示例**
 
@@ -957,102 +692,9 @@ public void delScrip()
 
 <div STYLE="page-break-after: always;"></div>
 
-## 5.2. 本机号码校验接口
+# 5. 返回码说明
 
-校验用户输入的号码是否本机号码。
-应用将手机号码传给移动认证SDK，移动认证SDK向认证服务端发起本机号码校验请求，认证服务端通过网关获取本机手机号码和第三方应用传输的手机号码进行校验，返回校验结果。
-
-### 5.2.1. 接口说明
-
-**调用次数说明：**本产品属于收费业务，开发者未签订服务合同前，每天总调用次数有限，详情可咨询商务。
-
-**请求地址：** https://www.cmpassport.com/openapi/rs/tokenValidate
-
-**协议：** HTTPS
-
-**请求方法：** POST+json,Content-type设置为application/json
-
-**回调地址：**请参考开发者接入流程文档
-
-### 5.2.2.  参数说明
-
-**请求参数**
-
-| 参数            | 类型     | 层级    | 约束                    | 说明                                       |
-| ------------- | ------ | ----- | --------------------- | ---------------------------------------- |
-| **header**    |        | **1** | 必选                    |                                          |
-| version       | string | 2     | 必选                    | 版本号,初始版本号1.0,有升级后续调整                     |
-| msgId         | string | 2     | 必选                    | 使用UUID标识请求的唯一性                           |
-| timestamp     | string | 2     | 必选                    | 请求消息发送的系统时间，精确到毫秒，共17位，格式：20121227180001165 |
-| appId         | string | 2     | 必选                    | 应用ID                                     |
-| **body**      |        | **1** | 必选                    |                                          |
-| openType      | String | 2     | 否，requestertype字段为0时是 | 运营商类型：</br>1:移动;</br>2:联通;</br>3:电信;</br>0:未知 |
-| requesterType | String | 2     | 是                     | 请求方类型：</br>0:APP；</br>1:WAP              |
-| message       | String | 2     | 否                     | 接入方预留参数，该参数会透传给通知接口，此参数需urlencode编码      |
-| expandParams  | String | 2     | 否                     | 扩展参数格式：param1=value1\|param2=value2  方式传递，参数以竖线 \| 间隔方式传递，此参数需urlencode编码。 |
-| phoneNum      | String | 2     | 是                     | 待校验的手机号码的64位sha256值，字母大写。（手机号码 + appKey + timestamp， “+”号为合并意思）（注：建议开发者对用户输入的手机号码的格式进行校验，增加校验通过的概率） |
-| token         | String | 2     | 是                     | 身份标识，字符串形式的token                         |
-| sign          | String | 2     | 是                     | 签名，HMACSHA256( appId +     msgId + phonNum + timestamp + token + version)，输出64位大写字母 （注：“+”号为合并意思，不包含在被加密的字符串中,appkey为秘钥, 参数名做自然排序（Java是用TreeMap进行的自然排序）） |
-|               |        |       |                       |                                          |
-
-**响应参数**
-
-| 参数         | 层级  | 类型   | 约束 | 说明                                                         |
-| ------------ | ----- | :----- | :--- | :----------------------------------------------------------- |
-| **header**   | **1** |        | 必选 |                                                              |
-| msgId        | 2     | string | 必选 | 对应的请求消息中的msgid                                      |
-| timestamp    | 2     | string | 必选 | 响应消息发送的系统时间，精确到毫秒，共17位，格式：20121227180001165 |
-| appId        | 2     | string | 必选 | 应用ID                                                       |
-| resultCode   | 2     | string | 必选 | 平台返回码                                                   |
-| **body**     | **1** |        | 必选 |                                                              |
-| resultDesc   | 2     | String | 必选 | 平台返回码                                                   |
-| message      | 2     | String | 否   | 接入方预留参数，该参数会透传给通知接口，此参数需urlencode编码 |
-| expandParams | 2     | String | 否   | 扩展参数格式：param1=value1\|param2=value2  方式传递，参数以竖线 \| 间隔方式传递，此参数需urlencode编码。 |
-
-### 5.2.3. 示例
-
-**请求示例**
-
-```
-{
-    body =     {
-        openType = 1;
-        phoneNum =0A2050AC434A32DE684745C829B3DE570590683FAA1C9374016EF60390E6CE76;
-        requesterType = 0;
-        sign = 87FCAC97BCF4B0B0D741FE1A85E4DF9603FD301CB3D7100BFB5763CCF61A1488;
-        token = STsid0000001517194515125yghlPllAetv4YXx0v6vW2grV1v0votvD;
-    };
-    header =     {
-        appId = 3000******76;
-        msgId = f11585580266414fbde9f755451fb7a7;
-        timestamp = 20180129105523519;
-        version = "1.0";
-    };
-}
-```
-
-**响应示例**
-
-```
-{
-    body =     {
-        message = "";
-        resultDesc = "\U662f\U672c\U673a\U53f7\U7801";
-    };
-    header =     {
-        appId = 3000******76;
-        msgId = f11585580266414fbde9f755451fb7a7;
-        resultCode = 000;
-        timestamp = 20180129105523701;
-    };
-}
-```
-
-<div STYLE="page-break-after: always;"></div>
-
-# 6. 返回码说明
-
-##6.1. SDK返回码
+##5.1. SDK返回码
 
 使用SDK时，SDK会在认证结束后将结果回调给开发者，其中结果为JSONObject对象，其中resultCode为结果响应码，103000代表成功，其他为失败。成功时在根据token字段取出身份标识。失败时根据resultCode定位失败原因。
 
@@ -1104,7 +746,7 @@ public void delScrip()
 | 200039 | 电信取号接口返回失败 |
 | 200040 | UI资源加载异常 |
 | 200042 | 授权页弹出异常 |
-## 6.2. 获取手机号码接口返回码
+## 5.2. 获取手机号码接口返回码
 
 | 返回码 | 返回码描述                                                |
 | ------ | --------------------------------------------------------- |
@@ -1162,21 +804,3 @@ public void delScrip()
 | 105019 | 应用未授权（未勾选能力）                                  |
 | 105302 | AppId不在白名单                                           |
 
-## 6.3. 本机号码校验接口返回码
-
-本返回码表仅针对`本机号码校验接口`使用
-
-| 返回码 | 说明                       |
-| ------ | -------------------------- |
-| 000    | 是本机号码（纳入计费次数） |
-| 001    | 非本机号码（纳入计费次数） |
-| 002    | 取号失败                   |
-| 003    | 调用内部token校验接口失败  |
-| 004    | 加密手机号码错误           |
-| 102    | 参数无效                   |
-| 124    | 白名单校验失败             |
-| 302    | sign校验失败               |
-| 303    | 参数解析错误               |
-| 606    | 验证Token失败              |
-| 999    | 系统异常                   |
-| 102315 | 次数已用完                 |
