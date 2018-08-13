@@ -39,6 +39,14 @@ jar包集成方式：
 1. 在Eclipse/AS中建立你的工程。 
 2. 将`*.jar`拷贝到工程的libs目录下，如没有该目录，可新建。
 
+如果使用android studio进行开发，在app的主module的build.gradle中加入依赖配置：
+
+```
+implementation 'com.cmictop.sso:sdk:9.0.4'
+```
+
+注：其中9.0.4是一键登录对应的SDK的版本号
+
 
 **第三步：开始使用移动认证SDK**
 
