@@ -1,4 +1,4 @@
-1. 接入指南
+#1. 接入指南
 
 sdk技术问题沟通QQ群：609994083</br>
 
@@ -61,7 +61,6 @@ implementation 'com.cmictop.sso:sdk:9.0.4'
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
 <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
-<uses-permission android:name="android.permission.GET_TASKS"/>
 ```
 
 注意：在调用`取号`或`授权登录`方法时，需提前申请`READ_PHONE_STATE`，否则会报错
