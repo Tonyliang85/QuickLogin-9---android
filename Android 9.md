@@ -122,7 +122,7 @@ mListener = new TokenListener() {
 
 <div STYLE="page-break-after: always;"></div>
 
-# 2. 一键登录功能
+# 2. 获取token
 
 ## 2.1. 准备工作
 
@@ -207,9 +207,13 @@ OnGetTokenComplete的参数JSONObject，含义如下：
 | desc          | String | 成功标识，true为成功。        |
 | securityphone | String | 手机号码掩码，如“138XXXX0000” |
 
-## 2.4. 创建授权页
+## 2.4. 创建授权页（一键登录）
 
 为了确保用户在登录过程中将手机号码信息授权给开发者使用的知情权，一键登录需要开发者提供授权页登录页面供用户授权确认。开发者在调用授权登录方法前，必须弹出授权页，明确告知用户当前操作会将用户的本机号码信息传递给应用。授权页面的设计、布局、生成、弹出和消失，由开发者自行处理，但必须遵守移动认证授权页面设计规范。
+
+注1：如果开发者需要使用**一键登录**服务，必须按照规定创建授权页面
+
+注2：**本机号码校验**不需要创建授权页面，可以直接跳过2.4章
 
 ### 2.4.1. 调用逻辑
 
@@ -358,6 +362,83 @@ TokenListener的参数JSONObject，含义如下：
 | systemtime   | string | 响应消息发送的系统时间，精确到毫秒，共17位，格式：20121227180001165 |
 | resultcode   | string | 返回码                                                       |
 | msisdn       | string | 表示手机号码，如果加密方式为RSA，应用需要用私钥进行解密      |
+
+## 2.7. 本机号码校验（服务端）
+
+开发者获取token后，需要将token传递到应用服务器，由应用服务器发起本机号码校验接口的调用。
+
+调用本接口，必须保证：
+
+1. token在有效期内（2分钟）。
+2. token还未使用过。
+3. 应用服务器出口IP地址在开发者社区中配置正确。
+
+对于本机号码校验，需要注意：
+
+1. 本产品属于收费业务，开发者未签订服务合同前，每天总调用次数有限，详情可咨询商务。
+2. 签订合同后，将不在提供每天免费的测试次数。
+
+**接口说明：**
+
+请求地址： https://www.cmpassport.com/openapi/rs/tokenValidate
+
+协议： HTTPS
+
+请求方法： POST+json,Content-type设置为application/json
+
+**请求示例代码：**
+
+```
+{
+    body =     {
+        openType = 1;
+        phoneNum =0A2050AC434A32DE684745C829B3DE570590683FAA1C9374016EF60390E6CE76;
+        requesterType = 0;
+        sign = 87FCAC97BCF4B0B0D741FE1A85E4DF9603FD301CB3D7100BFB5763CCF61A1488;
+        token = STsid0000001517194515125yghlPllAetv4YXx0v6vW2grV1v0votvD;
+    };
+    header =     {
+        appId = 3000******76;
+        msgId = f11585580266414fbde9f755451fb7a7;
+        timestamp = 20180129105523519;
+        version = "1.0";
+    };
+}
+```
+
+**参数说明：**
+
+| 参数          | 层级  | 约束                         | 说明                                                         |
+| ------------- | ----- | ---------------------------- | ------------------------------------------------------------ |
+| **header**    | **1** | 必选                         |                                                              |
+| version       | 2     | 必选                         | 版本号,初始版本号1.0,有升级后续调整                          |
+| msgId         | 2     | 必选                         | 使用UUID标识请求的唯一性                                     |
+| timestamp     | 2     | 必选                         | 请求消息发送的系统时间，精确到毫秒，共17位，格式：20121227180001165 |
+| appId         | 2     | 必选                         | 应用ID                                                       |
+| **body**      | **1** | 必选                         |                                                              |
+| openType      | 2     | 否，requestertype字段为0时是 | 运营商类型：</br>1:移动;</br>2:联通;</br>3:电信;</br>0:未知  |
+| requesterType | 2     | 是                           | 请求方类型：</br>0:APP；</br>1:WAP                           |
+| message       | 2     | 否                           | 接入方预留参数，该参数会透传给通知接口，此参数需urlencode编码 |
+| expandParams  | 2     | 否                           | 扩展参数格式：param1=value1\|param2=value2  方式传递，参数以竖线 \| 间隔方式传递，此参数需urlencode编码。 |
+| phoneNum      | 2     | 是                           | 待校验的手机号码的64位sha256值，字母大写。（手机号码 + appKey + timestamp， “+”号为合并意思）（注：建议开发者对用户输入的手机号码的格式进行校验，增加校验通过的概率） |
+| token         | 2     | 是                           | 身份标识，字符串形式的token                                  |
+| sign          | 2     | 是                           | 签名，HMACSHA256( appId +     msgId + phonNum + timestamp + token + version)，输出64位大写字母 （注：“+”号为合并意思，不包含在被加密的字符串中,appkey为秘钥, 参数名做自然排序（Java是用TreeMap进行的自然排序）） |
+
+**返回说明：**
+
+| 参数         | 层级  | 类型   | 说明                                                         |
+| ------------ | ----- | :----- | :----------------------------------------------------------- |
+| **header**   | **1** |        |                                                              |
+| msgId        | 2     | string | 对应的请求消息中的msgid                                      |
+| timestamp    | 2     | string | 响应消息发送的系统时间，精确到毫秒，共17位，格式：20121227180001165 |
+| appId        | 2     | string | 应用ID                                                       |
+| resultCode   | 2     | string | 平台返回码                                                   |
+| **body**     | **1** |        |                                                              |
+| resultDesc   | 2     | String | 平台返回码                                                   |
+| message      | 2     | String | 接入方预留参数，该参数会透传给通知接口，此参数需urlencode编码 |
+| expandParams | 2     | String | 扩展参数格式：param1=value1\|param2=value2  方式传递，参数以竖线 \| 间隔方式传递，此参数需urlencode编码。 |
+
+
 
 <div STYLE="page-break-after: always;"></div>
 
@@ -687,7 +768,102 @@ public void delScrip()
 }
 ```
 
+## 4.2. 本机号码校验接口
+
+校验用户输入的号码是否本机号码。
+应用将手机号码传给移动认证SDK，移动认证SDK向认证服务端发起本机号码校验请求，认证服务端通过网关获取本机手机号码和第三方应用传输的手机号码进行校验，返回校验结果。
+
+### 4.2.1. 接口说明
+
+**调用次数说明：**本产品属于收费业务，开发者未签订服务合同前，每天总调用次数有限，详情可咨询商务。
+
+**请求地址：** https://www.cmpassport.com/openapi/rs/tokenValidate
+
+**协议：** HTTPS
+
+**请求方法：** POST+json,Content-type设置为application/json
+
+**回调地址：**请参考开发者接入流程文档
+
+### 4.2.2.  参数说明
+
+**请求参数**
+
+| 参数          | 类型   | 层级  | 约束                         | 说明                                                         |
+| ------------- | ------ | ----- | ---------------------------- | ------------------------------------------------------------ |
+| **header**    |        | **1** | 必选                         |                                                              |
+| version       | string | 2     | 必选                         | 版本号,初始版本号1.0,有升级后续调整                          |
+| msgId         | string | 2     | 必选                         | 使用UUID标识请求的唯一性                                     |
+| timestamp     | string | 2     | 必选                         | 请求消息发送的系统时间，精确到毫秒，共17位，格式：20121227180001165 |
+| appId         | string | 2     | 必选                         | 应用ID                                                       |
+| **body**      |        | **1** | 必选                         |                                                              |
+| openType      | String | 2     | 否，requestertype字段为0时是 | 运营商类型：</br>1:移动;</br>2:联通;</br>3:电信;</br>0:未知  |
+| requesterType | String | 2     | 是                           | 请求方类型：</br>0:APP；</br>1:WAP                           |
+| message       | String | 2     | 否                           | 接入方预留参数，该参数会透传给通知接口，此参数需urlencode编码 |
+| expandParams  | String | 2     | 否                           | 扩展参数格式：param1=value1\|param2=value2  方式传递，参数以竖线 \| 间隔方式传递，此参数需urlencode编码。 |
+| phoneNum      | String | 2     | 是                           | 待校验的手机号码的64位sha256值，字母大写。（手机号码 + appKey + timestamp， “+”号为合并意思）（注：建议开发者对用户输入的手机号码的格式进行校验，增加校验通过的概率） |
+| token         | String | 2     | 是                           | 身份标识，字符串形式的token                                  |
+| sign          | String | 2     | 是                           | 签名，HMACSHA256( appId +     msgId + phonNum + timestamp + token + version)，输出64位大写字母 （注：“+”号为合并意思，不包含在被加密的字符串中,appkey为秘钥, 参数名做自然排序（Java是用TreeMap进行的自然排序）） |
+|               |        |       |                              |                                                              |
+
+**响应参数**
+
+| 参数         | 层级  | 类型   | 约束 | 说明                                                         |
+| ------------ | ----- | :----- | :--- | :----------------------------------------------------------- |
+| **header**   | **1** |        | 必选 |                                                              |
+| msgId        | 2     | string | 必选 | 对应的请求消息中的msgid                                      |
+| timestamp    | 2     | string | 必选 | 响应消息发送的系统时间，精确到毫秒，共17位，格式：20121227180001165 |
+| appId        | 2     | string | 必选 | 应用ID                                                       |
+| resultCode   | 2     | string | 必选 | 平台返回码                                                   |
+| **body**     | **1** |        | 必选 |                                                              |
+| resultDesc   | 2     | String | 必选 | 平台返回码                                                   |
+| message      | 2     | String | 否   | 接入方预留参数，该参数会透传给通知接口，此参数需urlencode编码 |
+| expandParams | 2     | String | 否   | 扩展参数格式：param1=value1\|param2=value2  方式传递，参数以竖线 \| 间隔方式传递，此参数需urlencode编码。 |
+
+### 4.2.3. 示例
+
+**请求示例**
+
+```
+{
+    body =     {
+        openType = 1;
+        phoneNum =0A2050AC434A32DE684745C829B3DE570590683FAA1C9374016EF60390E6CE76;
+        requesterType = 0;
+        sign = 87FCAC97BCF4B0B0D741FE1A85E4DF9603FD301CB3D7100BFB5763CCF61A1488;
+        token = STsid0000001517194515125yghlPllAetv4YXx0v6vW2grV1v0votvD;
+    };
+    header =     {
+        appId = 3000******76;
+        msgId = f11585580266414fbde9f755451fb7a7;
+        timestamp = 20180129105523519;
+        version = "1.0";
+    };
+}
+
+```
+
+**响应示例**
+
+```
+{
+    body =     {
+        message = "";
+        resultDesc = "\U662f\U672c\U673a\U53f7\U7801";
+    };
+    header =     {
+        appId = 3000******76;
+        msgId = f11585580266414fbde9f755451fb7a7;
+        resultCode = 000;
+        timestamp = 20180129105523701;
+    };
+}
+
+```
+
 <div STYLE="page-break-after: always;"></div>
+
+
 
 # 5. 返回码说明
 
@@ -800,4 +976,23 @@ public void delScrip()
 | 105018 | 用户权限不够                                              |
 | 105019 | 应用未授权（未勾选能力）                                  |
 | 105302 | AppId不在白名单                                           |
+
+## 5.3. 本机号码校验接口返回码
+
+本返回码表仅针对`本机号码校验接口`使用
+
+| 返回码 | 说明                       |
+| ------ | -------------------------- |
+| 000    | 是本机号码（纳入计费次数） |
+| 001    | 非本机号码（纳入计费次数） |
+| 002    | 取号失败                   |
+| 003    | 调用内部token校验接口失败  |
+| 004    | 加密手机号码错误           |
+| 102    | 参数无效                   |
+| 124    | 白名单校验失败             |
+| 302    | sign校验失败               |
+| 303    | 参数解析错误               |
+| 606    | 验证Token失败              |
+| 999    | 系统异常                   |
+| 102315 | 次数已用完                 |
 
